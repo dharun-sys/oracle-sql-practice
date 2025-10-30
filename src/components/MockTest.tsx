@@ -72,6 +72,7 @@ export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
     return saved ? JSON.parse(saved) : [];
   });
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(() => {
+    if (reviewTestId) return 0;
     const saved = localStorage.getItem("mockTest_currentQuestionIndex");
     return saved ? parseInt(saved) : 0;
   });
@@ -93,31 +94,47 @@ export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
   const [selectedAnswers, setSelectedAnswers] = useState<string[]>([]);
   const [score, setScore] = useState(0);
   const [isComplete, setIsComplete] = useState(() => {
+    if (reviewTestId) return true;
     const saved = localStorage.getItem("mockTest_isComplete");
     return saved === "true";
   });
   const [isStarted, setIsStarted] = useState(() => {
+    if (reviewTestId) return true;
     const saved = localStorage.getItem("mockTest_isStarted");
     return saved === "true";
   });
   const [answeredQuestions, setAnsweredQuestions] = useState<Set<number>>(() => {
+    if (reviewTestId) {
+      const results = localStorage.getItem("mockTestResults");
+      if (results) {
+        const allResults = JSON.parse(results);
+        const testResult = allResults.find((r: MockTestResult) => r.id === reviewTestId);
+        if (testResult && testResult.userAnswers) {
+          return new Set(testResult.userAnswers.map(([index]) => index));
+        }
+      }
+      return new Set();
+    }
     const saved = localStorage.getItem("mockTest_answeredQuestions");
     return saved ? new Set(JSON.parse(saved)) : new Set();
   });
   const [savedQuestions, setSavedQuestions] = useState<Set<number>>(() => {
+    if (reviewTestId) return new Set();
     const saved = localStorage.getItem("mockTest_savedQuestions");
     return saved ? new Set(JSON.parse(saved)) : new Set();
   });
   const [timeRemaining, setTimeRemaining] = useState(() => {
+    if (reviewTestId) return 0;
     const saved = localStorage.getItem("mockTest_timeRemaining");
     return saved ? parseInt(saved) : 90 * 60;
   });
   const [startTime, setStartTime] = useState<number | null>(() => {
+    if (reviewTestId) return null;
     const saved = localStorage.getItem("mockTest_startTime");
     return saved ? parseInt(saved) : null;
   });
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
-  const [showResults, setShowResults] = useState(false);
+  const [showResults, setShowResults] = useState(!!reviewTestId);
   const [isReviewMode, setIsReviewMode] = useState(!!reviewTestId);
   const [correctAnswers, setCorrectAnswers] = useState<Set<number>>(() => {
     if (reviewTestId) {
@@ -539,6 +556,31 @@ export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
               size="lg"
               className="w-full text-lg py-6"
               onClick={() => {
+                // Clear ALL session-specific localStorage data before starting
+                localStorage.removeItem("mockTest_questions");
+                localStorage.removeItem("mockTest_currentQuestionIndex");
+                localStorage.removeItem("mockTest_userAnswers");
+                localStorage.removeItem("mockTest_answeredQuestions");
+                localStorage.removeItem("mockTest_savedQuestions");
+                localStorage.removeItem("mockTest_timeRemaining");
+                localStorage.removeItem("mockTest_isStarted");
+                localStorage.removeItem("mockTest_isComplete");
+                localStorage.removeItem("mockTest_startTime");
+                
+                // Reset all state for fresh test
+                setQuestions([]);
+                setCurrentQuestionIndex(0);
+                setUserAnswers(new Map());
+                setSelectedAnswers([]);
+                setAnsweredQuestions(new Set());
+                setSavedQuestions(new Set());
+                setTimeRemaining(90 * 60);
+                setIsComplete(false);
+                setScore(0);
+                setCorrectAnswers(new Set());
+                setIncorrectAnswers(new Set());
+                setShowResults(false);
+                
                 setIsStarted(true);
                 setStartTime(Date.now());
               }}

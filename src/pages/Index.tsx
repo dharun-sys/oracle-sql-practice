@@ -40,7 +40,19 @@ const Index = () => {
     return (
       <QuestionSetSelector 
         onSelectSet={setSelectedSet}
-        onStartMockTest={() => setIsMockTest(true)}
+        onStartMockTest={() => {
+          // Clear all session-specific localStorage when starting a new mock test
+          localStorage.removeItem("mockTest_questions");
+          localStorage.removeItem("mockTest_currentQuestionIndex");
+          localStorage.removeItem("mockTest_userAnswers");
+          localStorage.removeItem("mockTest_answeredQuestions");
+          localStorage.removeItem("mockTest_savedQuestions");
+          localStorage.removeItem("mockTest_timeRemaining");
+          localStorage.removeItem("mockTest_isStarted");
+          localStorage.removeItem("mockTest_isComplete");
+          localStorage.removeItem("mockTest_startTime");
+          setIsMockTest(true);
+        }}
         onReviewTest={(testId) => setReviewTestId(testId)}
       />
     );
