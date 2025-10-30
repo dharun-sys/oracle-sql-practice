@@ -1,0 +1,179 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 215 25% 97%;
+    --foreground: 215 25% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 10%;
+
+    --primary: 199 89% 48%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 199 89% 65%;
+
+    --secondary: 215 20% 92%;
+    --secondary-foreground: 215 25% 15%;
+
+    --muted: 215 20% 92%;
+    --muted-foreground: 215 15% 45%;
+
+    --accent: 158 64% 52%;
+    --accent-foreground: 0 0% 100%;
+
+    --success: 158 64% 52%;
+    --success-foreground: 0 0% 100%;
+    --success-bg: 158 64% 95%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --destructive-bg: 0 93% 94%;
+
+    --info-bg: 199 89% 95%;
+    --info-border: 199 89% 48%;
+
+    --border: 215 20% 88%;
+    --input: 215 20% 88%;
+    --ring: 199 89% 48%;
+
+    --radius: 0.75rem;
+    
+    --gradient-primary: linear-gradient(135deg, hsl(199 89% 48%), hsl(199 89% 65%));
+    --gradient-success: linear-gradient(135deg, hsl(158 64% 52%), hsl(158 64% 65%));
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%), hsl(215 25% 98%));
+    
+    --shadow-sm: 0 2px 8px -2px hsl(215 25% 10% / 0.08);
+    --shadow-md: 0 8px 24px -8px hsl(215 25% 10% / 0.12);
+    --shadow-lg: 0 16px 48px -16px hsl(215 25% 10% / 0.16);
+    
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 215 30% 8%;
+    --foreground: 215 20% 95%;
+
+    --card: 215 28% 12%;
+    --card-foreground: 215 20% 95%;
+
+    --popover: 215 28% 12%;
+    --popover-foreground: 215 20% 95%;
+
+    --primary: 199 89% 55%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 199 89% 65%;
+
+    --secondary: 215 25% 18%;
+    --secondary-foreground: 215 20% 95%;
+
+    --muted: 215 25% 18%;
+    --muted-foreground: 215 15% 60%;
+
+    --accent: 158 64% 52%;
+    --accent-foreground: 0 0% 100%;
+
+    --success: 158 64% 52%;
+    --success-foreground: 0 0% 100%;
+    --success-bg: 158 64% 15%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --destructive-bg: 0 93% 15%;
+
+    --info-bg: 199 89% 15%;
+    --info-border: 199 89% 48%;
+
+    --border: 215 25% 18%;
+    --input: 215 25% 18%;
+    --ring: 199 89% 55%;
+    
+    --gradient-primary: linear-gradient(135deg, hsl(199 89% 55%), hsl(199 89% 65%));
+    --gradient-success: linear-gradient(135deg, hsl(158 64% 52%), hsl(158 64% 65%));
+    --gradient-card: linear-gradient(180deg, hsl(215 28% 12%), hsl(215 28% 10%));
+    
+    --shadow-sm: 0 2px 8px -2px hsl(0 0% 0% / 0.3);
+    --shadow-md: 0 8px 24px -8px hsl(0 0% 0% / 0.4);
+    --shadow-lg: 0 16px 48px -16px hsl(0 0% 0% / 0.5);
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  .quiz-content pre {
+    @apply bg-secondary border border-border rounded-lg p-4 overflow-x-auto text-sm font-mono my-3;
+  }
+
+  .quiz-content pre code {
+    @apply text-foreground;
+  }
+
+  .quiz-content p {
+    @apply my-2;
+  }
+
+  .quiz-content strong {
+    @apply font-semibold text-foreground;
+  }
+
+  .quiz-content code {
+    @apply bg-secondary px-1.5 py-0.5 rounded text-sm font-mono;
+  }
+
+  .quiz-content ul, .quiz-content ol {
+    @apply my-3 ml-6;
+  }
+
+  .quiz-content li {
+    @apply my-1;
+  }
+
+  .quiz-content a {
+    @apply text-primary hover:underline;
+  }
+
+  .quiz-content img {
+    @apply max-w-full h-auto my-4 rounded-lg border;
+  }
+}
