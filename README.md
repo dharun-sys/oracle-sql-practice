@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 =======
 # Oracle SQL Practice
 
