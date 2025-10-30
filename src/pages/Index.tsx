@@ -28,6 +28,8 @@ const Index = () => {
   const handleBackFromMockTest = () => {
     setIsMockTest(false);
     setReviewTestId(null);
+    // Clear any remaining mock test state
+    localStorage.removeItem("isMockTest");
   };
 
   if (isMockTest || reviewTestId) {

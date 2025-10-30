@@ -154,32 +154,42 @@ export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
       
       const allQuestions: Question[] = [];
       const questionSets = ["questions", "questions1", "questions2", "questions3", "questions4", "questions6"];
+      const seenQuestionIds = new Set<number>();
       
       for (const setName of questionSets) {
         try {
           const questionsData = await import(`../data/${setName}.json`);
-          const transformedQuestions: Question[] = questionsData.default.results.map((q: any) => {
-            const answers: Answer[] = q.prompt.answers.map((answer: string, index: number) => {
-              const answerId = String.fromCharCode(97 + index);
+          const transformedQuestions: Question[] = questionsData.default.results
+            .filter((q: any) => {
+              // Skip if we've already seen this question ID
+              if (seenQuestionIds.has(q.id)) {
+                return false;
+              }
+              seenQuestionIds.add(q.id);
+              return true;
+            })
+            .map((q: any) => {
+              const answers: Answer[] = q.prompt.answers.map((answer: string, index: number) => {
+                const answerId = String.fromCharCode(97 + index);
+                return {
+                  id: answerId,
+                  text: answer,
+                  isCorrect: q.correct_response.includes(answerId),
+                  feedback: q.prompt.feedbacks[index] || "",
+                };
+              });
+
               return {
-                id: answerId,
-                text: answer,
-                isCorrect: q.correct_response.includes(answerId),
-                feedback: q.prompt.feedbacks[index] || "",
+                id: q.id,
+                type: q.assessment_type,
+                question: q.prompt.question,
+                answers,
+                explanation: q.prompt.explanation,
+                section: q.section,
+                links: q.prompt.links || [],
+                setName,
               };
             });
-
-            return {
-              id: q.id,
-              type: q.assessment_type,
-              question: q.prompt.question,
-              answers,
-              explanation: q.prompt.explanation,
-              section: q.section,
-              links: q.prompt.links || [],
-              setName,
-            };
-          });
           allQuestions.push(...transformedQuestions);
         } catch (error) {
           console.error(`Failed to load ${setName}:`, error);
@@ -194,7 +204,7 @@ export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
     };
 
     loadRandomQuestions();
-  }, [questions.length]);
+  }, [questions.length, reviewTestId]);
 
   // Persist state to localStorage
   useEffect(() => {
@@ -373,12 +383,59 @@ export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
 
   const confirmSubmit = () => {
     const finalScore = calculateResults();
-    saveMockTestResult(finalScore);
+    const correct = new Set<number>();
+    const incorrect = new Set<number>();
+
+    questions.forEach((question, index) => {
+      const userAnswer = userAnswers.get(index);
+      if (userAnswer) {
+        const correctAnswerIds = question.answers
+          .filter((a) => a.isCorrect)
+          .map((a) => a.id)
+          .sort();
+        
+        const isCorrect =
+          userAnswer.length === correctAnswerIds.length &&
+          userAnswer.sort().every((id, idx) => id === correctAnswerIds[idx]);
+
+        if (isCorrect) {
+          correct.add(index);
+        } else {
+          incorrect.add(index);
+        }
+      }
+    });
+
+    setCorrectAnswers(correct);
+    setIncorrectAnswers(incorrect);
+    
+    // Save result with correct/incorrect answers
+    const percentage = Math.round((finalScore / 57) * 100);
+    const timeSpent = formatTime((90 * 60) - timeRemaining);
+    
+    const result: MockTestResult = {
+      id: Date.now().toString(),
+      date: new Date().toISOString(),
+      score: finalScore,
+      total: 57,
+      percentage,
+      timeSpent,
+      questions,
+      userAnswers: Array.from(userAnswers.entries()),
+      correctAnswers: Array.from(correct),
+      incorrectAnswers: Array.from(incorrect),
+    };
+
+    const existingResults = localStorage.getItem("mockTestResults");
+    const results = existingResults ? JSON.parse(existingResults) : [];
+    results.push(result);
+    localStorage.setItem("mockTestResults", JSON.stringify(results));
+    
     setShowResults(true);
     setIsComplete(true);
     setShowSubmitDialog(false);
     
-    // Clear all mock test data from localStorage
+    // Clear all mock test data from localStorage to allow new tests
     localStorage.removeItem("mockTest_questions");
     localStorage.removeItem("mockTest_currentQuestionIndex");
     localStorage.removeItem("mockTest_userAnswers");
@@ -388,7 +445,6 @@ export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
     localStorage.removeItem("mockTest_isStarted");
     localStorage.removeItem("mockTest_isComplete");
     localStorage.removeItem("mockTest_startTime");
-    localStorage.removeItem("isMockTest");
   };
 
   const handleNext = () => {
@@ -429,8 +485,8 @@ export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
     return "border-border bg-secondary";
   };
 
-  // Start Screen
-  if (!isStarted) {
+  // Start Screen (only show if not in review mode)
+  if (!isStarted && !isReviewMode) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="max-w-2xl w-full p-8 md:p-12 text-center space-y-6">
