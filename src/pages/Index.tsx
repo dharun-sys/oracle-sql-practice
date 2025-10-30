@@ -10,6 +10,7 @@ const Index = () => {
   const [isMockTest, setIsMockTest] = useState(() => {
     return localStorage.getItem("isMockTest") === "true";
   });
+  const [reviewTestId, setReviewTestId] = useState<string | null>(null);
 
   // Persist state to localStorage
   useEffect(() => {
@@ -24,8 +25,13 @@ const Index = () => {
     localStorage.setItem("isMockTest", String(isMockTest));
   }, [isMockTest]);
 
-  if (isMockTest) {
-    return <MockTest onBack={() => setIsMockTest(false)} />;
+  const handleBackFromMockTest = () => {
+    setIsMockTest(false);
+    setReviewTestId(null);
+  };
+
+  if (isMockTest || reviewTestId) {
+    return <MockTest onBack={handleBackFromMockTest} reviewTestId={reviewTestId || undefined} />;
   }
 
   if (!selectedSet) {
@@ -33,6 +39,7 @@ const Index = () => {
       <QuestionSetSelector 
         onSelectSet={setSelectedSet}
         onStartMockTest={() => setIsMockTest(true)}
+        onReviewTest={(testId) => setReviewTestId(testId)}
       />
     );
   }

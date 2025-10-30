@@ -25,9 +25,10 @@ const questionSets: QuestionSet[] = [
 
 interface QuestionSetSelectorPropsExtended extends QuestionSetSelectorProps {
   onStartMockTest?: () => void;
+  onReviewTest?: (testId: string) => void;
 }
 
-export function QuestionSetSelector({ onSelectSet, onStartMockTest }: QuestionSetSelectorPropsExtended) {
+export function QuestionSetSelector({ onSelectSet, onStartMockTest, onReviewTest }: QuestionSetSelectorPropsExtended) {
   // Load mock test history
   const [mockTestHistory, setMockTestHistory] = React.useState<any[]>([]);
 
@@ -58,7 +59,7 @@ export function QuestionSetSelector({ onSelectSet, onStartMockTest }: QuestionSe
                 <div className="text-center md:text-left">
                   <h2 className="text-2xl font-bold mb-2">Take a Mock Test</h2>
                   <p className="text-muted-foreground">
-                    57 random questions from all sets • 90 minutes time limit
+                    57 random questions from all sets • 1 hour and 30 minutes time limit
                   </p>
                 </div>
                 <Button 
@@ -91,7 +92,7 @@ export function QuestionSetSelector({ onSelectSet, onStartMockTest }: QuestionSe
                       {result.percentage}%
                     </span>
                   </div>
-                  <div className="text-sm space-y-1">
+                  <div className="text-sm space-y-1 mb-3">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Score:</span>
                       <span className="font-semibold">{result.score} / {result.total}</span>
@@ -101,6 +102,16 @@ export function QuestionSetSelector({ onSelectSet, onStartMockTest }: QuestionSe
                       <span className="font-semibold">{result.timeSpent}</span>
                     </div>
                   </div>
+                  {onReviewTest && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => onReviewTest(result.id)}
+                    >
+                      Review Test
+                    </Button>
+                  )}
                 </Card>
               ))}
             </div>

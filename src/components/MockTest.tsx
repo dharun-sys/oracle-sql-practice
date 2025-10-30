@@ -44,10 +44,30 @@ interface MockTestResult {
   total: number;
   percentage: number;
   timeSpent: string;
+  questions: Question[];
+  userAnswers: [number, string[]][];
+  correctAnswers: number[];
+  incorrectAnswers: number[];
 }
 
-export default function MockTest({ onBack }: MockTestProps) {
+interface MockTestProps {
+  onBack: () => void;
+  reviewTestId?: string;
+}
+
+export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
   const [questions, setQuestions] = useState<Question[]>(() => {
+    if (reviewTestId) {
+      const results = localStorage.getItem("mockTestResults");
+      if (results) {
+        const allResults = JSON.parse(results);
+        const testResult = allResults.find((r: MockTestResult) => r.id === reviewTestId);
+        if (testResult) {
+          return testResult.questions;
+        }
+      }
+      return [];
+    }
     const saved = localStorage.getItem("mockTest_questions");
     return saved ? JSON.parse(saved) : [];
   });
@@ -56,6 +76,17 @@ export default function MockTest({ onBack }: MockTestProps) {
     return saved ? parseInt(saved) : 0;
   });
   const [userAnswers, setUserAnswers] = useState<Map<number, string[]>>(() => {
+    if (reviewTestId) {
+      const results = localStorage.getItem("mockTestResults");
+      if (results) {
+        const allResults = JSON.parse(results);
+        const testResult = allResults.find((r: MockTestResult) => r.id === reviewTestId);
+        if (testResult) {
+          return new Map(testResult.userAnswers);
+        }
+      }
+      return new Map();
+    }
     const saved = localStorage.getItem("mockTest_userAnswers");
     return saved ? new Map(JSON.parse(saved)) : new Map();
   });
@@ -87,15 +118,39 @@ export default function MockTest({ onBack }: MockTestProps) {
   });
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [showResults, setShowResults] = useState(false);
-  const [isReviewMode, setIsReviewMode] = useState(false);
-  const [correctAnswers, setCorrectAnswers] = useState<Set<number>>(new Set());
-  const [incorrectAnswers, setIncorrectAnswers] = useState<Set<number>>(new Set());
+  const [isReviewMode, setIsReviewMode] = useState(!!reviewTestId);
+  const [correctAnswers, setCorrectAnswers] = useState<Set<number>>(() => {
+    if (reviewTestId) {
+      const results = localStorage.getItem("mockTestResults");
+      if (results) {
+        const allResults = JSON.parse(results);
+        const testResult = allResults.find((r: MockTestResult) => r.id === reviewTestId);
+        if (testResult) {
+          return new Set(testResult.correctAnswers);
+        }
+      }
+    }
+    return new Set();
+  });
+  const [incorrectAnswers, setIncorrectAnswers] = useState<Set<number>>(() => {
+    if (reviewTestId) {
+      const results = localStorage.getItem("mockTestResults");
+      if (results) {
+        const allResults = JSON.parse(results);
+        const testResult = allResults.find((r: MockTestResult) => r.id === reviewTestId);
+        if (testResult) {
+          return new Set(testResult.incorrectAnswers);
+        }
+      }
+    }
+    return new Set();
+  });
 
   // Load and shuffle questions from all 6 sets
   useEffect(() => {
     const loadRandomQuestions = async () => {
-      // Only load if no questions exist
-      if (questions.length > 0) return;
+      // Skip loading if in review mode or if questions exist
+      if (reviewTestId || questions.length > 0) return;
       
       const allQuestions: Question[] = [];
       const questionSets = ["questions", "questions1", "questions2", "questions3", "questions4", "questions6"];
@@ -266,6 +321,10 @@ export default function MockTest({ onBack }: MockTestProps) {
       total: 57,
       percentage,
       timeSpent,
+      questions,
+      userAnswers: Array.from(userAnswers.entries()),
+      correctAnswers: Array.from(correctAnswers),
+      incorrectAnswers: Array.from(incorrectAnswers),
     };
 
     const existingResults = localStorage.getItem("mockTestResults");
@@ -318,6 +377,18 @@ export default function MockTest({ onBack }: MockTestProps) {
     setShowResults(true);
     setIsComplete(true);
     setShowSubmitDialog(false);
+    
+    // Clear all mock test data from localStorage
+    localStorage.removeItem("mockTest_questions");
+    localStorage.removeItem("mockTest_currentQuestionIndex");
+    localStorage.removeItem("mockTest_userAnswers");
+    localStorage.removeItem("mockTest_answeredQuestions");
+    localStorage.removeItem("mockTest_savedQuestions");
+    localStorage.removeItem("mockTest_timeRemaining");
+    localStorage.removeItem("mockTest_isStarted");
+    localStorage.removeItem("mockTest_isComplete");
+    localStorage.removeItem("mockTest_startTime");
+    localStorage.removeItem("isMockTest");
   };
 
   const handleNext = () => {
@@ -383,7 +454,7 @@ export default function MockTest({ onBack }: MockTestProps) {
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Time Limit</span>
-              <span className="font-semibold text-foreground">90 Minutes</span>
+              <span className="font-semibold text-foreground">1 hour and 30 minutes</span>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Question Source</span>
