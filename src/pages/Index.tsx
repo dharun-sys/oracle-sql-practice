@@ -1,9 +1,28 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { ADMIN_PATH } from "@/lib/constants";
 import Quiz from "@/components/Quiz";
 import MockTest from "@/components/MockTest";
 import { QuestionSetSelector } from "@/components/QuestionSetSelector";
 
 const Index = () => {
+  const navigate = useNavigate();
+
+  const [authUser, setAuthUser] = useState<{ register_no?: string; student_name?: string | null; isAdmin?: boolean } | null>(() => {
+    try {
+      const raw = localStorage.getItem("auth_user");
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch (e) {
+      return null;
+    }
+  });
+
+  const handleLogout = () => {
+    localStorage.removeItem("auth_user");
+    // optionally clear other session data if needed
+    navigate("/login");
+  };
   const [selectedSet, setSelectedSet] = useState<string | null>(() => {
     return localStorage.getItem("selectedSet") || null;
   });
@@ -32,33 +51,74 @@ const Index = () => {
     localStorage.removeItem("isMockTest");
   };
 
+  const header = (
+    <div className="flex justify-end items-center p-4">
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => navigate("/profile")}
+        onKeyDown={(e) => e.key === "Enter" && navigate("/profile")}
+        className="mr-4 text-sm text-gray-700 cursor-pointer hover:underline"
+      >
+        {authUser?.student_name ? authUser.student_name : authUser?.register_no ? `User: ${authUser.register_no}` : null}
+      </div>
+      {authUser?.isAdmin && (
+        <button
+          onClick={() => navigate(ADMIN_PATH)}
+          className="mr-4 px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+        >
+          Admin Page
+        </button>
+      )}
+      <button
+        onClick={handleLogout}
+        className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+      >
+        Logout
+      </button>
+    </div>
+  );
+
   if (isMockTest || reviewTestId) {
-    return <MockTest onBack={handleBackFromMockTest} reviewTestId={reviewTestId || undefined} />;
+    return (
+      <div>
+        {header}
+        <MockTest onBack={handleBackFromMockTest} reviewTestId={reviewTestId || undefined} />
+      </div>
+    );
   }
 
   if (!selectedSet) {
     return (
-      <QuestionSetSelector 
-        onSelectSet={setSelectedSet}
-        onStartMockTest={() => {
-          // Clear all session-specific localStorage when starting a new mock test
-          localStorage.removeItem("mockTest_questions");
-          localStorage.removeItem("mockTest_currentQuestionIndex");
-          localStorage.removeItem("mockTest_userAnswers");
-          localStorage.removeItem("mockTest_answeredQuestions");
-          localStorage.removeItem("mockTest_savedQuestions");
-          localStorage.removeItem("mockTest_timeRemaining");
-          localStorage.removeItem("mockTest_isStarted");
-          localStorage.removeItem("mockTest_isComplete");
-          localStorage.removeItem("mockTest_startTime");
-          setIsMockTest(true);
-        }}
-        onReviewTest={(testId) => setReviewTestId(testId)}
-      />
+      <div>
+        {header}
+        <QuestionSetSelector 
+          onSelectSet={setSelectedSet}
+          onStartMockTest={() => {
+            // Clear all session-specific localStorage when starting a new mock test
+            localStorage.removeItem("mockTest_questions");
+            localStorage.removeItem("mockTest_currentQuestionIndex");
+            localStorage.removeItem("mockTest_userAnswers");
+            localStorage.removeItem("mockTest_answeredQuestions");
+            localStorage.removeItem("mockTest_savedQuestions");
+            localStorage.removeItem("mockTest_timeRemaining");
+            localStorage.removeItem("mockTest_isStarted");
+            localStorage.removeItem("mockTest_isComplete");
+            localStorage.removeItem("mockTest_startTime");
+            setIsMockTest(true);
+          }}
+          onReviewTest={(testId) => setReviewTestId(testId)}
+        />
+      </div>
     );
   }
 
-  return <Quiz questionSetId={selectedSet} onBack={() => setSelectedSet(null)} />;
+  return (
+    <div>
+      {header}
+      <Quiz questionSetId={selectedSet} onBack={() => setSelectedSet(null)} />
+    </div>
+  );
 };
 
 export default Index;

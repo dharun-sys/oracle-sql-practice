@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import * as auth from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -35,6 +37,7 @@ export default function Quiz({ questionSetId, onBack }: QuizProps) {
   const [showExplanation, setShowExplanation] = useState(false);
   const [score, setScore] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
+  const [remoteSaveStatus, setRemoteSaveStatus] = useState<string | null>(null);
   const [isStarted, setIsStarted] = useState(false);
   const [answeredQuestions, setAnsweredQuestions] = useState<Set<number>>(new Set());
   const [savedQuestions, setSavedQuestions] = useState<Set<number>>(new Set());
@@ -210,6 +213,171 @@ export default function Quiz({ questionSetId, onBack }: QuizProps) {
     setUserAnswers(new Map());
   };
 
+  const calculateResults = () => {
+    let finalScore = 0;
+    const correct = new Set<number>();
+    const incorrect = new Set<number>();
+
+    questions.forEach((question, index) => {
+      const userAnswer = userAnswers.get(index);
+      if (userAnswer) {
+        const correctAnswerIds = question.answers
+          .filter((a) => a.isCorrect)
+          .map((a) => a.id)
+          .sort();
+
+        const userSorted = [...userAnswer].sort();
+        const isCorrect = userSorted.length === correctAnswerIds.length && userSorted.every((id, idx) => id === correctAnswerIds[idx]);
+
+        if (isCorrect) {
+          finalScore++;
+          correct.add(index);
+        } else {
+          incorrect.add(index);
+        }
+      }
+    });
+
+    setScore(finalScore);
+    setCorrectAnswers(correct);
+    setIncorrectAnswers(incorrect);
+    setAnsweredQuestions(new Set(Array.from(userAnswers.keys())));
+    return finalScore;
+  };
+
+  const handleFinalSubmit = () => {
+    // compute results and mark complete
+    calculateResults();
+    setIsComplete(true);
+  };
+
+  // When quiz completes, save result locally and attempt to save to Supabase
+  useEffect(() => {
+    if (!isComplete) return;
+
+    const percentage = Math.round((score / questions.length) * 100);
+    const result = {
+      // stable uuid so duplicates are detectable and primary-key safe
+      id: (typeof crypto !== 'undefined' && (crypto as any).randomUUID) ? (crypto as any).randomUUID() : Date.now().toString(),
+      date: new Date().toISOString(),
+      score,
+      total: questions.length,
+      percentage,
+      questions,
+      userAnswers: Array.from(userAnswers.entries()),
+      correctAnswers: Array.from(correctAnswers),
+      incorrectAnswers: Array.from(incorrectAnswers),
+    } as any;
+
+    // persist locally (aggregate list)
+    try {
+      const existing = localStorage.getItem("quizResults");
+      const arr = existing ? JSON.parse(existing) : [];
+      arr.push(result);
+      localStorage.setItem("quizResults", JSON.stringify(arr));
+    } catch (err) {
+      console.error("Failed to save quiz result locally:", err);
+    }
+
+    // attempt remote save, but avoid duplicate inserts by tracking saved ids
+    (async () => {
+      try {
+        setRemoteSaveStatus("saving");
+
+        const authRaw = localStorage.getItem("auth_user");
+        if (!authRaw) {
+          setRemoteSaveStatus("no auth_user in localStorage");
+          return;
+        }
+        const authObj = JSON.parse(authRaw);
+        const localRegisterNo = authObj?.register_no;
+
+        const user = await auth.findUserByRegister(localRegisterNo);
+        if (!user) {
+          setRemoteSaveStatus("user not found");
+          return;
+        }
+        const registerNo = user.register_no || localRegisterNo || null;
+
+        // guard against duplicate saves
+        const savedIdsRaw = localStorage.getItem("savedResultIds");
+        const savedIds: string[] = savedIdsRaw ? JSON.parse(savedIdsRaw) : [];
+        if (savedIds.includes(result.id)) {
+          console.log("Result already saved, skipping remote insert", result.id);
+          setRemoteSaveStatus("already-saved");
+          return;
+        }
+
+        const setLabels: Record<string, string> = {
+          questions: "Practice Set 1",
+          questions1: "Practice Set 2",
+          questions2: "Practice Set 3",
+          questions3: "Practice Set 4",
+          questions4: "Practice Set 5",
+          questions6: "Practice Set 6",
+        };
+
+        const testName = setLabels[questionSetId] || `Practice: ${questionSetId}`;
+
+        // ensure register_no is explicit and authoritative (prefer DB value)
+        const payload = {
+          id: result.id,
+          user_id: user.id,
+          register_no: registerNo || null,
+          test_name: testName,
+          test_type: "practice",
+          student_name: user.student_name || null,
+          score: result.score,
+          total_questions: result.total,
+          questions_answered: Array.isArray(result.userAnswers) ? result.userAnswers.length : 0,
+          percentage: result.percentage,
+          details: result,
+          taken_at: result.date,
+        } as any;
+
+        console.log("Inserting practice payload:", payload);
+
+        const { data, error } = await supabase.from("test_logs").insert(payload).select();
+        if (error) {
+          console.error("Supabase insert error:", error);
+          setRemoteSaveStatus("error: " + (error.message || JSON.stringify(error)));
+          return;
+        }
+
+        // mark as saved
+        savedIds.push(result.id);
+        localStorage.setItem("savedResultIds", JSON.stringify(savedIds));
+
+        console.log("Quiz result saved to Supabase", data);
+        setRemoteSaveStatus("saved");
+
+        // Cleanup local state for practice quizzes: we don't need to preserve local copies
+        try {
+          // remove persisted quiz state so user can take unlimited practices
+          localStorage.removeItem(`quizState_${questionSetId}`);
+
+          // remove this result from local quizResults aggregate
+          const existingResults = localStorage.getItem("quizResults");
+          if (existingResults) {
+            try {
+              const arr = JSON.parse(existingResults);
+              const filtered = arr.filter((r: any) => r.id !== result.id);
+              localStorage.setItem("quizResults", JSON.stringify(filtered));
+            } catch (e) {
+              console.warn("Failed to clean quizResults local entry:", e);
+            }
+          }
+        } catch (e) {
+          console.warn("Cleanup after save failed:", e);
+        }
+      } catch (err: any) {
+        console.error("savePracticeResultRemote error:", err);
+        setRemoteSaveStatus("error: " + (err?.message || String(err)));
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isComplete]);
+
   const handleQuestionJump = (index: number) => {
     setCurrentQuestionIndex(index);
   };
@@ -315,16 +483,11 @@ export default function Quiz({ questionSetId, onBack }: QuizProps) {
               {percentage}% Correct
             </div>
             <Progress value={percentage} className="h-3" />
+              {remoteSaveStatus && (
+                <div className="text-sm mt-2">Server: {remoteSaveStatus === "saving" ? "Saving result to server..." : remoteSaveStatus}</div>
+              )}
           </div>
           <div className="flex flex-col gap-3">
-            <Button
-              size="lg"
-              className="flex-1"
-              onClick={handleRestart}
-            >
-              <RotateCcw className="w-4 h-4 mr-2" />
-              Try Again
-            </Button>
             <Button
               size="lg"
               variant="outline"
@@ -418,6 +581,14 @@ export default function Quiz({ questionSetId, onBack }: QuizProps) {
               <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleFinalSubmit}
+            className="w-full mt-2"
+          >
+            Submit Quiz
+          </Button>
           <Button
             variant="destructive"
             size="sm"

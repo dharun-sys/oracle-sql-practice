@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import * as auth from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -136,6 +138,7 @@ export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [showResults, setShowResults] = useState(!!reviewTestId);
   const [isReviewMode, setIsReviewMode] = useState(!!reviewTestId);
+  const [remoteSaveStatus, setRemoteSaveStatus] = useState<string | null>(null);
   const [correctAnswers, setCorrectAnswers] = useState<Set<number>>(() => {
     if (reviewTestId) {
       const results = localStorage.getItem("mockTestResults");
@@ -342,7 +345,7 @@ export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
     const timeSpent = formatTime((90 * 60) - timeRemaining);
     
     const result: MockTestResult = {
-      id: Date.now().toString(),
+      id: (typeof crypto !== 'undefined' && (crypto as any).randomUUID) ? (crypto as any).randomUUID() : Date.now().toString(),
       date: new Date().toISOString(),
       score: finalScore,
       total: 57,
@@ -358,7 +361,77 @@ export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
     const results = existingResults ? JSON.parse(existingResults) : [];
     results.push(result);
     localStorage.setItem("mockTestResults", JSON.stringify(results));
+
+    // also attempt to persist remotely to Supabase
+    try {
+      // fire-and-forget; don't block UI
+      setRemoteSaveStatus("saving");
+      // avoid duplicate inserts: check saved ids
+      const savedIdsRaw = localStorage.getItem("savedResultIds");
+      const savedIds: string[] = savedIdsRaw ? JSON.parse(savedIdsRaw) : [];
+      if (savedIds.includes(result.id)) {
+        console.log("Mock result already saved, skipping remote insert", result.id);
+        setRemoteSaveStatus("already-saved");
+      } else {
+        saveMockTestResultRemote(result)
+          .then(() => {
+            console.log("Mock test result saved to Supabase");
+            savedIds.push(result.id);
+            localStorage.setItem("savedResultIds", JSON.stringify(savedIds));
+            setRemoteSaveStatus("saved");
+          })
+          .catch((err) => {
+            console.error("Failed to save mock test to Supabase:", err);
+            setRemoteSaveStatus("error: " + (err?.message || String(err)));
+          });
+      }
+    } catch (err) {
+      console.error("Failed to enqueue Supabase save:", err);
+      setRemoteSaveStatus("error: " + (err?.message || String(err)));
+    }
   };
+
+  async function saveMockTestResultRemote(result: MockTestResult) {
+    try {
+  const authRaw = localStorage.getItem("auth_user");
+  if (!authRaw) return;
+  const authObj = JSON.parse(authRaw);
+  const localRegisterNo = authObj?.register_no;
+
+  const user = await auth.findUserByRegister(localRegisterNo);
+  if (!user) return;
+  // prefer authoritative register_no from DB if present
+  const registerNo = user.register_no || localRegisterNo || null;
+
+      const payload = {
+        user_id: user.id,
+        register_no: registerNo || null,
+        test_name: "Oracle SQL Mock Test",
+        test_type: "mock",
+        student_name: user.student_name || null,
+        score: result.score,
+        total_questions: result.total,
+        questions_answered: Array.isArray(result.userAnswers) ? result.userAnswers.length : 0,
+        percentage: result.percentage,
+        time_spent: result.timeSpent,
+        details: result,
+        taken_at: result.date,
+      } as any;
+
+      console.log("Inserting mock payload:", payload);
+
+      const { data, error } = await supabase.from("test_logs").insert(payload).select();
+      if (error) {
+        console.error("Supabase insert error:", error);
+        throw error;
+      }
+
+      return data;
+    } catch (err) {
+      console.error("saveMockTestResultRemote error:", err);
+      throw err;
+    }
+  }
 
   const currentQuestion = questions[currentQuestionIndex];
 
@@ -447,6 +520,22 @@ export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
     const results = existingResults ? JSON.parse(existingResults) : [];
     results.push(result);
     localStorage.setItem("mockTestResults", JSON.stringify(results));
+    // persist remote copy as well
+    try {
+      setRemoteSaveStatus("saving");
+      saveMockTestResultRemote(result)
+        .then(() => {
+          console.log("Mock test result saved to Supabase");
+          setRemoteSaveStatus("saved");
+        })
+        .catch((err) => {
+          console.error("Failed to save mock test to Supabase:", err);
+          setRemoteSaveStatus("error: " + (err?.message || String(err)));
+        });
+    } catch (err) {
+      console.error("Failed to enqueue Supabase save:", err);
+      setRemoteSaveStatus("error: " + (err?.message || String(err)));
+    }
     
     setShowResults(true);
     setIsComplete(true);
@@ -629,6 +718,11 @@ export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
             <div className="text-sm text-muted-foreground">
               Time: {formatTime((90 * 60) - timeRemaining)}
             </div>
+            {remoteSaveStatus && (
+              <div className="text-sm mt-2">
+                Server: {remoteSaveStatus === "saving" ? "Saving result to server..." : remoteSaveStatus}
+              </div>
+            )}
           </div>
           <div className="flex flex-col gap-3">
             <Button
