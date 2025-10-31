@@ -169,9 +169,12 @@ export default function Quiz({ questionSetId, onBack }: QuizProps) {
       .map((a) => a.id)
       .sort();
     
+    // copy and sort user selection to avoid mutating state (Array.prototype.sort mutates)
+    const userSorted = [...selectedAnswers].sort();
+
     const isCorrect =
-      selectedAnswers.length === correctAnswerIds.length &&
-      selectedAnswers.sort().every((id, idx) => id === correctAnswerIds[idx]);
+      userSorted.length === correctAnswerIds.length &&
+      userSorted.every((id, idx) => id === correctAnswerIds[idx]);
 
     if (isCorrect) {
       setScore(score + 1);
@@ -697,23 +700,28 @@ export default function Quiz({ questionSetId, onBack }: QuizProps) {
         {/* Question Card */}
         <Card className="p-0 overflow-hidden">
           <div className="bg-info-bg border-l-4 border-info-border p-4 md:p-6">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-info-border flex-shrink-0 mt-1" />
-              <div>
-                <p className="text-sm font-semibold text-foreground mb-1">
-                  {currentQuestion.type === "multi-select" 
-                    ? "Incorrect answer. Review the explanation and resources to learn more." 
-                    : "Review the available responses."}
-                </p>
-                {!showExplanation && (
-                  <p className="text-xs text-muted-foreground">
-                    {currentQuestion.type === "multi-select" 
-                      ? "Select all correct answers" 
-                      : "Choose the correct answer"}
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-info-border flex-shrink-0 mt-1" />
+                <div>
+                  {/* Show a neutral instruction before answering; after submission show correct/incorrect feedback */}
+                  <p className="text-sm font-semibold text-foreground mb-1">
+                    {showExplanation
+                      ? incorrectAnswers.has(currentQuestionIndex)
+                        ? "Incorrect answer. Review the explanation and resources to learn more."
+                        : "Correct — well done! Review the explanation and resources to learn more."
+                      : currentQuestion.type === "multi-select"
+                      ? "Select all correct answers"
+                      : "Review the available responses."}
                   </p>
-                )}
+                  {!showExplanation && (
+                    <p className="text-xs text-muted-foreground">
+                      {currentQuestion.type === "multi-select"
+                        ? "Select all correct answers"
+                        : "Choose the correct answer"}
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
           </div>
 
           <div className="p-6 md:p-8 space-y-6">
