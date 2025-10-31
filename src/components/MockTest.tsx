@@ -176,6 +176,15 @@ export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
       const questionSets = ["questions", "questions1", "questions2", "questions3", "questions4", "questions6"];
       const seenQuestionIds = new Set<number>();
       
+      const shuffle = <T,>(arr: T[]) => {
+        const a = [...arr];
+        for (let i = a.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+      };
+
       for (const setName of questionSets) {
         try {
           const questionsData = await import(`../data/${setName}.json`);
@@ -199,11 +208,14 @@ export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
                 };
               });
 
+              // Randomize displayed order of answers for each question
+              const shuffledAnswers = shuffle(answers);
+
               return {
                 id: q.id,
                 type: q.assessment_type,
                 question: q.prompt.question,
-                answers,
+                answers: shuffledAnswers,
                 explanation: q.prompt.explanation,
                 section: q.section,
                 links: q.prompt.links || [],
@@ -393,15 +405,13 @@ export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
 
   async function saveMockTestResultRemote(result: MockTestResult) {
     try {
-  const authRaw = localStorage.getItem("auth_user");
-  if (!authRaw) return;
-  const authObj = JSON.parse(authRaw);
-  const localRegisterNo = authObj?.register_no;
-
-  const user = await auth.findUserByRegister(localRegisterNo);
+  const token = localStorage.getItem("auth_token");
+  if (!token) return;
+  const sessionUserId = await auth.verifySessionToken(token);
+  if (!sessionUserId) return;
+  const user = await auth.findUserById(sessionUserId);
   if (!user) return;
-  // prefer authoritative register_no from DB if present
-  const registerNo = user.register_no || localRegisterNo || null;
+  const registerNo = user.register_no || null;
 
       const payload = {
         user_id: user.id,

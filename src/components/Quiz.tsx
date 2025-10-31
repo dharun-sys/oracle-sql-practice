@@ -85,6 +85,15 @@ export default function Quiz({ questionSetId, onBack }: QuizProps) {
 
   // Load questions dynamically based on questionSetId
   useEffect(() => {
+    const shuffle = <T,>(arr: T[]) => {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    };
+
     const loadQuestions = async () => {
       try {
         const questionsData = await import(`../data/${questionSetId}.json`);
@@ -99,11 +108,14 @@ export default function Quiz({ questionSetId, onBack }: QuizProps) {
             };
           });
 
+          // Randomize displayed order of answers to prevent memorization
+          const shuffledAnswers = shuffle(answers);
+
           return {
             id: q.id,
             type: q.assessment_type,
             question: q.prompt.question,
-            answers,
+            answers: shuffledAnswers,
             explanation: q.prompt.explanation,
             section: q.section,
             links: q.prompt.links || [],
@@ -289,20 +301,24 @@ export default function Quiz({ questionSetId, onBack }: QuizProps) {
       try {
         setRemoteSaveStatus("saving");
 
-        const authRaw = localStorage.getItem("auth_user");
-        if (!authRaw) {
-          setRemoteSaveStatus("no auth_user in localStorage");
+        const token = localStorage.getItem("auth_token");
+        if (!token) {
+          setRemoteSaveStatus("no auth_token in localStorage");
           return;
         }
-        const authObj = JSON.parse(authRaw);
-        const localRegisterNo = authObj?.register_no;
 
-        const user = await auth.findUserByRegister(localRegisterNo);
+        const sessionUserId = await auth.verifySessionToken(token);
+        if (!sessionUserId) {
+          setRemoteSaveStatus("invalid session token");
+          return;
+        }
+
+        const user = await auth.findUserById(sessionUserId);
         if (!user) {
           setRemoteSaveStatus("user not found");
           return;
         }
-        const registerNo = user.register_no || localRegisterNo || null;
+        const registerNo = user.register_no || null;
 
         // guard against duplicate saves
         const savedIdsRaw = localStorage.getItem("savedResultIds");

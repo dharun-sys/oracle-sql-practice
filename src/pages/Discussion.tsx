@@ -47,18 +47,22 @@ export default function Discussion() {
 
   const authRaw = typeof window !== "undefined" ? localStorage.getItem("auth_user") : null;
   const authUser = authRaw ? JSON.parse(authRaw) : null;
-  // register_no is stored in auth_user, but the DB expects user_id (uuid). Resolve it here.
+  // We'll resolve server-authoritative user id and username via the session token
   const [currentUserUuid, setCurrentUserUuid] = useState<string | null>(null);
-  const currentUsername = authUser?.student_name || authUser?.register_no || "Anonymous";
+  const [currentUsername, setCurrentUsername] = useState<string>(authUser?.student_name || authUser?.register_no || "Anonymous");
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
-        const reg = authUser?.register_no;
-        if (reg) {
-          const user = await auth.findUserByRegister(reg);
-          if (mounted && user && user.id) setCurrentUserUuid(user.id);
+        const token = localStorage.getItem('auth_token');
+        if (!token) return;
+        const sessionUserId = await auth.verifySessionToken(token);
+        if (!sessionUserId) return;
+        const user = await auth.findUserById(sessionUserId);
+        if (mounted && user && user.id) {
+          setCurrentUserUuid(user.id);
+          setCurrentUsername(user.student_name || user.register_no || "Anonymous");
         }
       } catch (e) {
         console.warn("Failed to resolve current user UUID for discussions:", e);

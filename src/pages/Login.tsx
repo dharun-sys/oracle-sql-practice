@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import * as auth from "@/lib/auth";
+import * as authLib from "@/lib/auth";
 
 const Login = () => {
   const [registerNumber, setRegisterNumber] = useState("");
@@ -47,9 +48,10 @@ const Login = () => {
     setLoading(true);
     try {
       await auth.createPasswordForRegister(registerNumber.trim(), password);
-      // fetch the user record to persist display name
+      // fetch the user record to persist display name and create a server session token
       const userInfo = await auth.findUserByRegister(registerNumber.trim());
-      // persist a simple auth flag so ProtectedRoute can guard routes
+      const token = await authLib.createSessionForRegister(registerNumber.trim());
+      // persist a simple auth flag and session token
       localStorage.setItem(
         "auth_user",
         JSON.stringify({
@@ -58,6 +60,7 @@ const Login = () => {
           isAdmin: Boolean(userInfo?.is_admin ?? (userInfo as any)?.isAdmin ?? false),
         })
       );
+      localStorage.setItem("auth_token", token);
       navigate("/home");
     } catch (err: any) {
       setError(err?.message || String(err));
@@ -77,6 +80,7 @@ const Login = () => {
       } else {
         // persist a simple auth flag so ProtectedRoute can guard routes
         const userInfo = await auth.findUserByRegister(registerNumber.trim());
+        const token = await authLib.createSessionForRegister(registerNumber.trim());
         localStorage.setItem(
           "auth_user",
           JSON.stringify({
@@ -85,6 +89,7 @@ const Login = () => {
             isAdmin: Boolean(userInfo?.is_admin ?? (userInfo as any)?.isAdmin ?? false),
           })
         );
+        localStorage.setItem("auth_token", token);
         navigate("/home");
       }
     } catch (err: any) {

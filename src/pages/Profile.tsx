@@ -36,13 +36,13 @@ export default function Profile() {
       setLoading(true);
       setError(null);
       try {
-        const authRaw = localStorage.getItem("auth_user");
-        if (!authRaw) throw new Error("Not logged in");
-        const authObj = JSON.parse(authRaw);
-        const registerNo = authObj?.register_no;
-        if (!registerNo) throw new Error("Missing register number in auth_user");
+        const token = localStorage.getItem("auth_token");
+        if (!token) throw new Error("Not logged in");
 
-        const user = await auth.findUserByRegister(registerNo);
+        const sessionUserId = await auth.verifySessionToken(token);
+        if (!sessionUserId) throw new Error("Invalid session");
+
+        const user = await auth.findUserById(sessionUserId);
         if (!user) throw new Error("User not found");
 
         // fetch all logs for this user
@@ -56,8 +56,8 @@ export default function Profile() {
         const logs = data || [];
 
         // Save display info from auth/user for header display
-        setStudentName(user.student_name ?? null);
-        setRegisterNoState(user.register_no ?? registerNo ?? null);
+  setStudentName(user.student_name ?? null);
+  setRegisterNoState(user.register_no ?? null);
 
         const setLabels: Record<string, string> = {
           questions: "Practice Set 1",

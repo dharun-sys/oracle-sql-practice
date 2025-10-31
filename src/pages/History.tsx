@@ -29,21 +29,21 @@ export default function History() {
       setLoading(true);
       setError(null);
       try {
-        const authRaw = localStorage.getItem("auth_user");
-        if (!authRaw) {
+        const token = localStorage.getItem("auth_token");
+        if (!token) {
           setError("Not logged in");
           setLoading(false);
           return;
         }
-        const authObj = JSON.parse(authRaw);
-        const registerNo = authObj?.register_no;
-        if (!registerNo) {
-          setError("Missing register number in auth_user");
+
+        const sessionUserId = await auth.verifySessionToken(token);
+        if (!sessionUserId) {
+          setError("Invalid session");
           setLoading(false);
           return;
         }
 
-        const user = await auth.findUserByRegister(registerNo);
+        const user = await auth.findUserById(sessionUserId);
         if (!user) {
           setError("User not found");
           setLoading(false);
