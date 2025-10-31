@@ -71,10 +71,50 @@ const Index = () => {
         </button>
       )}
       <button
-        onClick={handleLogout}
-        className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+        onClick={async () => {
+          const ok = window.confirm("This will clear all local app data (localStorage, sessionStorage, IndexedDB and cookies) and sign you out. Continue?");
+          if (!ok) return;
+          try {
+            // clear storages
+            localStorage.clear();
+            sessionStorage.clear();
+
+            // attempt to clear all indexedDB databases (if supported)
+            try {
+              if (indexedDB && (indexedDB as any).databases) {
+                const dbs = await (indexedDB as any).databases();
+                for (const db of dbs) {
+                  if (db && db.name) {
+                    indexedDB.deleteDatabase(db.name);
+                  }
+                }
+              }
+            } catch (e) {
+              // ignore indexedDB cleanup errors
+              console.warn("IndexedDB cleanup failed", e);
+            }
+
+            // clear cookies for current domain/path
+            try {
+              document.cookie.split(";").forEach(function(c) {
+                const name = c.split("=")[0].trim();
+                if (!name) return;
+                document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+              });
+            } catch (e) {
+              console.warn("Cookie cleanup failed", e);
+            }
+
+            // navigate to login after clearing
+            navigate("/login");
+          } catch (err) {
+            console.error("Failed to clear app data:", err);
+            alert("Failed to clear some app data. Check console for details.");
+          }
+        }}
+        className="px-3 py-1 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 mr-2"
       >
-        Logout
+        Reset App Data
       </button>
     </div>
   );
