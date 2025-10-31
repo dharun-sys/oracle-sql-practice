@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { CheckCircle2, XCircle, Trophy, RotateCcw, Brain, AlertCircle, ChevronLeft, ChevronRight, SkipForward } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useNavigate } from "react-router-dom";
 
 interface Answer {
   id: string;
@@ -43,6 +44,7 @@ export default function Quiz({ questionSetId, onBack }: QuizProps) {
   const [savedQuestions, setSavedQuestions] = useState<Set<number>>(new Set());
   const [correctAnswers, setCorrectAnswers] = useState<Set<number>>(new Set());
   const [incorrectAnswers, setIncorrectAnswers] = useState<Set<number>>(new Set());
+  const navigate = useNavigate();
 
   // Load persisted state from localStorage
   useEffect(() => {
@@ -824,6 +826,7 @@ export default function Quiz({ questionSetId, onBack }: QuizProps) {
                           <a
                             href={link}
                             target="_blank"
+                            // onClick={() => navigate(`${link}`)}
                             rel="noopener noreferrer"
                             className="text-sm text-primary hover:underline"
                           >

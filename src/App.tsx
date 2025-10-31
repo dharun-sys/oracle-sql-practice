@@ -11,6 +11,7 @@ import { ADMIN_PATH } from "@/lib/constants";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
+import Discussion from "./pages/Discussion";
 
 const queryClient = new QueryClient();
 // if user gives correct answer for the question it is still showing incorrect answer, 
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/" element={<Login />} />
           <Route path="/login" element={<Login />} />
           <Route path="/home" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+          <Route path="/discussion" element={<ProtectedRoute><Discussion /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path={ADMIN_PATH} element={<AdminRoute><Admin /></AdminRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

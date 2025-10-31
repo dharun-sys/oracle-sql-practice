@@ -53,6 +53,14 @@ const Index = () => {
 
   const header = (
     <div className="flex justify-end items-center p-4">
+      <div className="mr-4">
+        <button
+          onClick={() => navigate('/discussion')}
+          className="mr-2 px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
+        >
+          Discussions
+        </button>
+      </div>
       <div
         role="button"
         tabIndex={0}
