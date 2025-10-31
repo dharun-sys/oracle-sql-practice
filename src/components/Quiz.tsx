@@ -331,7 +331,6 @@ export default function Quiz({ questionSetId, onBack }: QuizProps) {
           total_questions: result.total,
           questions_answered: Array.isArray(result.userAnswers) ? result.userAnswers.length : 0,
           percentage: result.percentage,
-          details: result,
           taken_at: result.date,
         } as any;
 

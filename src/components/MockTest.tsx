@@ -414,7 +414,6 @@ export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
         questions_answered: Array.isArray(result.userAnswers) ? result.userAnswers.length : 0,
         percentage: result.percentage,
         time_spent: result.timeSpent,
-        details: result,
         taken_at: result.date,
       } as any;
 
