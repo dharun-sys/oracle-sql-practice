@@ -13,7 +13,9 @@ import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
-
+// if user gives correct answer for the question it is still showing incorrect answer, 
+// FIXME: if user chooses all the correct options in multi select type question or they choose the correct choice in multi choice type then it must show correct answer
+// in some places it is showing review the available responses while taking a test, those must be shown only after user submits the answer to that question
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
