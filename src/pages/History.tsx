@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabaseClient";
 import * as auth from "@/lib/auth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { formatLocalDateTime } from "@/lib/utils";
 
 type LogRow = {
   id: string;
@@ -89,7 +90,7 @@ export default function History() {
             <tbody>
               {logs.map((row) => (
                 <tr key={row.id} className="border-t">
-                  <td className="p-2">{row.taken_at ? new Date(row.taken_at).toLocaleString() : "-"}</td>
+                  <td className="p-2">{formatLocalDateTime(row.taken_at)}</td>
                   <td className="p-2">{row.test_name}</td>
                   <td className="p-2">{row.test_type}</td>
                   <td className="p-2">{row.score ?? "-"}/{row.total_questions ?? "-"}</td>

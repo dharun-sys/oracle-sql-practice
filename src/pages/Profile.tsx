@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabaseClient";
 import * as auth from "@/lib/auth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { formatLocalDateTime } from "@/lib/utils";
 
 type StatRow = {
   key: string;
@@ -15,6 +16,7 @@ type StatRow = {
 export default function Profile() {
   const navigate = useNavigate();
   const [stats, setStats] = useState<StatRow[]>([]);
+  const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [studentName, setStudentName] = useState<string | null>(null);
@@ -48,12 +50,15 @@ export default function Profile() {
         // fetch all logs for this user
         const { data, error } = await supabase
           .from("test_logs")
-          .select("id,test_name,test_type,score,total_questions,percentage,questions_answered,taken_at")
-          .eq("user_id", user.id);
+          .select("id,test_name,test_type,score,total_questions,percentage,questions_answered,taken_at,student_name,register_no")
+          .eq("user_id", user.id)
+          .order("taken_at", { ascending: false });
 
         if (error) throw error;
 
-        const logs = data || [];
+        const logsData = data || [];
+        // keep logs in state so we can render recent submissions below
+        setLogs(logsData as any[]);
 
         // Save display info from auth/user for header display
   setStudentName(user.student_name ?? null);
@@ -69,7 +74,7 @@ export default function Profile() {
         };
 
         const computed: StatRow[] = tests.map((t) => {
-          const entries = logs.filter((l: any) => {
+          const entries = (logsData as any[]).filter((l: any) => {
             if (t.key === "mock") {
               return (l.test_type && String(l.test_type).toLowerCase() === "mock") || (l.test_name && /mock/i.test(String(l.test_name)));
             }
@@ -143,6 +148,41 @@ export default function Profile() {
             </tbody>
           </table>
         </Card>
+      )}
+
+      {/* Recent submissions for this user */}
+      {!loading && !error && (
+        <div className="mt-6">
+          <h2 className="text-lg font-semibold mb-2">Recent Submissions</h2>
+          {logs.length === 0 ? (
+            <Card className="p-4">No submissions yet.</Card>
+          ) : (
+            <Card className="p-4">
+              <table className="w-full table-auto">
+                <thead>
+                  <tr className="text-left">
+                    <th className="p-2">Date</th>
+                    <th className="p-2">Test</th>
+                    <th className="p-2">Answered</th>
+                    <th className="p-2">Score</th>
+                    <th className="p-2">%</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {logs.map((row: any) => (
+                    <tr key={row.id} className="border-t">
+                      <td className="p-2">{formatLocalDateTime(row.taken_at)}</td>
+                      <td className="p-2">{row.test_name}</td>
+                      <td className="p-2">{row.questions_answered ?? "-"}</td>
+                      <td className="p-2">{row.score ?? "-"}/{row.total_questions ?? "-"}</td>
+                      <td className="p-2">{row.percentage ?? "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card>
+          )}
+        </div>
       )}
     </div>
   );
