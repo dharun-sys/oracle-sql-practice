@@ -14,7 +14,7 @@ interface DiscussionRow {
   title: string;
   body: string;
   category: string;
-  question_id?: number | null;
+  question_id?: string | null;
   created_at: string;
 }
 
@@ -132,7 +132,8 @@ export default function Discussion() {
         title: title.trim(),
         body: body.trim(),
         category,
-        question_id: questionId ? Number(questionId) : null,
+        // question_id used to be numeric; column is now text (e.g. "ps1q02") so store raw trimmed string
+        question_id: questionId ? questionId.trim() : null,
       } as any;
 
       const { data, error } = await supabase.from("discussions").insert(payload).select();
@@ -238,6 +239,15 @@ export default function Discussion() {
               <div className="text-xs text-muted-foreground">{new Date(d.created_at).toLocaleString()}</div>
             </div>
             <h3 className="font-semibold text-lg">{d.title}</h3>
+
+            {/* show category and question id when present */}
+            <div className="flex items-center gap-3 mt-2">
+              <div className="text-xs px-2 py-1 rounded bg-muted/30 text-muted-foreground">{d.category}</div>
+              {d.question_id !== null && d.question_id !== undefined && (
+                <div className="text-xs text-muted-foreground">Question ID: <span className="font-medium">{d.question_id}</span></div>
+              )}
+            </div>
+
             <div className="text-sm mt-2 mb-3 whitespace-pre-wrap">{d.body}</div>
 
             <div className="mt-3">
