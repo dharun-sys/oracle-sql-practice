@@ -1015,7 +1015,7 @@ export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
             </div>
 
             <div className="p-6 space-y-3">
-              {currentQuestion.answers.map((answer) => (
+              {currentQuestion.answers.map((answer, idx) => (
                 <button
                   key={answer.id}
                   onClick={() => handleAnswerSelect(answer.id)}
@@ -1033,7 +1033,7 @@ export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
                         <XCircle className="w-5 h-5 text-destructive" />
                       )}
                       {!isReviewMode && (
-                        <span className="text-xs font-bold">{answer.id.toUpperCase()}</span>
+                        <span className="text-xs font-bold">{String.fromCharCode(65 + idx)}</span>
                       )}
                     </div>
                     <div className="flex-1">

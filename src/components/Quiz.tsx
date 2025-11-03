@@ -762,7 +762,7 @@ export default function Quiz({ questionSetId, onBack }: QuizProps) {
             {/* Answers */}
             {!showExplanation ? (
               <div className="space-y-3">
-                {currentQuestion.answers.map((answer) => (
+                {currentQuestion.answers.map((answer, idx) => (
                   <button
                     key={answer.id}
                     onClick={() => handleAnswerSelect(answer.id)}
@@ -772,7 +772,7 @@ export default function Quiz({ questionSetId, onBack }: QuizProps) {
                   >
                     <div className="flex items-start gap-3">
                       <span className="flex-shrink-0 w-6 h-6 rounded-full border-2 border-current flex items-center justify-center text-xs font-bold">
-                        {answer.id.toUpperCase()}
+                        {String.fromCharCode(65 + idx)}
                       </span>
                       <div
                         className="flex-1 text-sm md:text-base quiz-content"
@@ -784,7 +784,7 @@ export default function Quiz({ questionSetId, onBack }: QuizProps) {
               </div>
             ) : (
               <div className="space-y-4">
-                {currentQuestion.answers.map((answer) => (
+                {currentQuestion.answers.map((answer, idx) => (
                   <div
                     key={answer.id}
                     className={`p-4 rounded-lg border-2 transition-all ${getAnswerStyle(
@@ -799,7 +799,7 @@ export default function Quiz({ questionSetId, onBack }: QuizProps) {
                           <XCircle className="w-5 h-5 text-destructive" />
                         ) : (
                           <span className="w-6 h-6 rounded-full border-2 border-current flex items-center justify-center text-xs font-bold">
-                            {answer.id.toUpperCase()}
+                            {String.fromCharCode(65 + idx)}
                           </span>
                         )}
                       </div>
