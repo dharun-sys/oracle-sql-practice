@@ -1,4 +1,6 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import * as auth from "@/lib/auth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BookOpen } from "lucide-react";
@@ -29,14 +31,65 @@ interface QuestionSetSelectorPropsExtended extends QuestionSetSelectorProps {
 }
 
 export function QuestionSetSelector({ onSelectSet, onStartMockTest, onReviewTest }: QuestionSetSelectorPropsExtended) {
-  // Load mock test history
-  const [mockTestHistory, setMockTestHistory] = React.useState<any[]>([]);
+  // Load mock test history from server when possible; fall back to localStorage for guests
+  const [mockTestHistory, setMockTestHistory] = useState<any[]>([]);
 
-  React.useEffect(() => {
-    const results = localStorage.getItem("mockTestResults");
-    if (results) {
-      setMockTestHistory(JSON.parse(results).reverse());
-    }
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+          // fallback to localStorage for unauthenticated users
+          const results = localStorage.getItem("mockTestResults");
+          if (results && mounted) setMockTestHistory(JSON.parse(results).reverse());
+          return;
+        }
+
+        const sessionUserId = await auth.verifySessionToken(token);
+        if (!sessionUserId) {
+          const results = localStorage.getItem("mockTestResults");
+          if (results && mounted) setMockTestHistory(JSON.parse(results).reverse());
+          return;
+        }
+
+        // fetch latest mock test logs for this user
+        const { data, error } = await supabase
+          .from('test_logs')
+          // fetch questions_map so we can ensure review is available server-side
+          .select('id, taken_at, score, total_questions, percentage, time_spent, questions_map')
+          .eq('user_id', sessionUserId)
+          .eq('test_type', 'mock')
+          // only include rows which actually have questions_map stored (server-side review available)
+          .not('questions_map', 'is', null)
+          .order('taken_at', { ascending: false })
+          .limit(50);
+
+        if (error) throw error;
+        if (mounted && data) {
+          // normalize to the shape the UI expects
+          const normalized = (data as any[])
+            // data already filtered to rows with questions_map != null, but be defensive
+            .filter(r => r.questions_map !== null && r.questions_map !== undefined)
+            .map((row: any) => ({
+              id: row.id,
+              date: row.taken_at || row.created_at || new Date().toISOString(),
+              score: row.score,
+              total: row.total_questions || row.total || 57,
+              percentage: row.percentage,
+              timeSpent: row.time_spent || row.timeSpent || '',
+            }));
+
+          setMockTestHistory(normalized);
+        }
+      } catch (err) {
+        console.warn('Failed to fetch mock test history from server, falling back to localStorage', err);
+        const results = localStorage.getItem("mockTestResults");
+        if (results && mounted) setMockTestHistory(JSON.parse(results).reverse());
+      }
+    })();
+
+    return () => { mounted = false; };
   }, []);
 
   return (
