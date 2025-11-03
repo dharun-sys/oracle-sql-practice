@@ -58,113 +58,35 @@ interface MockTestProps {
 }
 
 export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
+  // When reviewTestId is provided we will load review content from the server
+  // (test_logs.questions_snapshot) — do not read localStorage in that case.
   const [questions, setQuestions] = useState<Question[]>(() => {
-    if (reviewTestId) {
-      const results = localStorage.getItem("mockTestResults");
-      if (results) {
-        const allResults = JSON.parse(results);
-        const testResult = allResults.find((r: MockTestResult) => r.id === reviewTestId);
-        if (testResult) {
-          return testResult.questions;
-        }
-      }
-      return [];
-    }
+    if (reviewTestId) return [];
     const saved = localStorage.getItem("mockTest_questions");
     return saved ? JSON.parse(saved) : [];
   });
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(() => {
-    if (reviewTestId) return 0;
-    const saved = localStorage.getItem("mockTest_currentQuestionIndex");
-    return saved ? parseInt(saved) : 0;
-  });
-  const [userAnswers, setUserAnswers] = useState<Map<number, string[]>>(() => {
-    if (reviewTestId) {
-      const results = localStorage.getItem("mockTestResults");
-      if (results) {
-        const allResults = JSON.parse(results);
-        const testResult = allResults.find((r: MockTestResult) => r.id === reviewTestId);
-        if (testResult) {
-          return new Map(testResult.userAnswers);
-        }
-      }
-      return new Map();
-    }
-    const saved = localStorage.getItem("mockTest_userAnswers");
-    return saved ? new Map(JSON.parse(saved)) : new Map();
-  });
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(() => 0);
+  const [userAnswers, setUserAnswers] = useState<Map<number, string[]>>(() => new Map());
   const [selectedAnswers, setSelectedAnswers] = useState<string[]>([]);
   const [score, setScore] = useState(0);
-  const [isComplete, setIsComplete] = useState(() => {
-    if (reviewTestId) return true;
-    const saved = localStorage.getItem("mockTest_isComplete");
-    return saved === "true";
-  });
-  const [isStarted, setIsStarted] = useState(() => {
-    if (reviewTestId) return true;
-    const saved = localStorage.getItem("mockTest_isStarted");
-    return saved === "true";
-  });
-  const [answeredQuestions, setAnsweredQuestions] = useState<Set<number>>(() => {
-    if (reviewTestId) {
-      const results = localStorage.getItem("mockTestResults");
-      if (results) {
-        const allResults = JSON.parse(results);
-        const testResult = allResults.find((r: MockTestResult) => r.id === reviewTestId);
-        if (testResult && testResult.userAnswers) {
-          return new Set(testResult.userAnswers.map(([index]) => index));
-        }
-      }
-      return new Set();
-    }
-    const saved = localStorage.getItem("mockTest_answeredQuestions");
-    return saved ? new Set(JSON.parse(saved)) : new Set();
-  });
-  const [savedQuestions, setSavedQuestions] = useState<Set<number>>(() => {
-    if (reviewTestId) return new Set();
-    const saved = localStorage.getItem("mockTest_savedQuestions");
-    return saved ? new Set(JSON.parse(saved)) : new Set();
-  });
-  const [timeRemaining, setTimeRemaining] = useState(() => {
-    if (reviewTestId) return 0;
+  const [isComplete, setIsComplete] = useState(() => !!reviewTestId);
+  const [isStarted, setIsStarted] = useState(() => !!reviewTestId);
+  const [answeredQuestions, setAnsweredQuestions] = useState<Set<number>>(() => new Set());
+  const [savedQuestions, setSavedQuestions] = useState<Set<number>>(() => new Set());
+  const [timeRemaining, setTimeRemaining] = useState(() => reviewTestId ? 0 : (() => {
     const saved = localStorage.getItem("mockTest_timeRemaining");
     return saved ? parseInt(saved) : 90 * 60;
-  });
-  const [startTime, setStartTime] = useState<number | null>(() => {
-    if (reviewTestId) return null;
+  })());
+  const [startTime, setStartTime] = useState<number | null>(() => reviewTestId ? null : (() => {
     const saved = localStorage.getItem("mockTest_startTime");
     return saved ? parseInt(saved) : null;
-  });
+  })());
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [showResults, setShowResults] = useState(!!reviewTestId);
   const [isReviewMode, setIsReviewMode] = useState(!!reviewTestId);
   const [remoteSaveStatus, setRemoteSaveStatus] = useState<string | null>(null);
-  const [correctAnswers, setCorrectAnswers] = useState<Set<number>>(() => {
-    if (reviewTestId) {
-      const results = localStorage.getItem("mockTestResults");
-      if (results) {
-        const allResults = JSON.parse(results);
-        const testResult = allResults.find((r: MockTestResult) => r.id === reviewTestId);
-        if (testResult) {
-          return new Set(testResult.correctAnswers);
-        }
-      }
-    }
-    return new Set();
-  });
-  const [incorrectAnswers, setIncorrectAnswers] = useState<Set<number>>(() => {
-    if (reviewTestId) {
-      const results = localStorage.getItem("mockTestResults");
-      if (results) {
-        const allResults = JSON.parse(results);
-        const testResult = allResults.find((r: MockTestResult) => r.id === reviewTestId);
-        if (testResult) {
-          return new Set(testResult.incorrectAnswers);
-        }
-      }
-    }
-    return new Set();
-  });
+  const [correctAnswers, setCorrectAnswers] = useState<Set<number>>(() => new Set());
+  const [incorrectAnswers, setIncorrectAnswers] = useState<Set<number>>(() => new Set());
 
   // Load and shuffle questions from all 6 sets
   useEffect(() => {
@@ -240,48 +162,48 @@ export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
 
   // Persist state to localStorage
   useEffect(() => {
-    if (isStarted) {
+    if (isStarted && !isReviewMode) {
       localStorage.setItem("mockTest_currentQuestionIndex", String(currentQuestionIndex));
     }
-  }, [currentQuestionIndex, isStarted]);
+  }, [currentQuestionIndex, isStarted, isReviewMode]);
 
   useEffect(() => {
-    if (isStarted) {
+    if (isStarted && !isReviewMode) {
       localStorage.setItem("mockTest_userAnswers", JSON.stringify(Array.from(userAnswers.entries())));
     }
-  }, [userAnswers, isStarted]);
+  }, [userAnswers, isStarted, isReviewMode]);
 
   useEffect(() => {
-    if (isStarted) {
+    if (isStarted && !isReviewMode) {
       localStorage.setItem("mockTest_answeredQuestions", JSON.stringify(Array.from(answeredQuestions)));
     }
-  }, [answeredQuestions, isStarted]);
+  }, [answeredQuestions, isStarted, isReviewMode]);
 
   useEffect(() => {
-    if (isStarted) {
+    if (isStarted && !isReviewMode) {
       localStorage.setItem("mockTest_savedQuestions", JSON.stringify(Array.from(savedQuestions)));
     }
-  }, [savedQuestions, isStarted]);
+  }, [savedQuestions, isStarted, isReviewMode]);
 
   useEffect(() => {
-    if (isStarted) {
+    if (isStarted && !isReviewMode) {
       localStorage.setItem("mockTest_timeRemaining", String(timeRemaining));
     }
-  }, [timeRemaining, isStarted]);
+  }, [timeRemaining, isStarted, isReviewMode]);
 
   useEffect(() => {
-    localStorage.setItem("mockTest_isStarted", String(isStarted));
-  }, [isStarted]);
+    if (!isReviewMode) localStorage.setItem("mockTest_isStarted", String(isStarted));
+  }, [isStarted, isReviewMode]);
 
   useEffect(() => {
-    localStorage.setItem("mockTest_isComplete", String(isComplete));
-  }, [isComplete]);
+    if (!isReviewMode) localStorage.setItem("mockTest_isComplete", String(isComplete));
+  }, [isComplete, isReviewMode]);
 
   useEffect(() => {
-    if (startTime !== null) {
+    if (!isReviewMode && startTime !== null) {
       localStorage.setItem("mockTest_startTime", String(startTime));
     }
-  }, [startTime]);
+  }, [startTime, isReviewMode]);
 
   // Timer countdown
   useEffect(() => {
@@ -413,6 +335,14 @@ export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
   if (!user) return;
   const registerNo = user.register_no || null;
 
+      // Build questions_map: { <question_id>: ["a","c"] }
+      const questionsMap: Record<string, string[]> = {};
+      for (const [index, answers] of result.userAnswers) {
+        const q = result.questions[index];
+        const qid = q?.id ?? String(index);
+        questionsMap[String(qid)] = answers;
+      }
+
       const payload = {
         user_id: user.id,
         register_no: registerNo || null,
@@ -425,6 +355,10 @@ export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
         percentage: result.percentage,
         time_spent: result.timeSpent,
         taken_at: result.date,
+        // store the map of question id -> selected answer ids (so review can be reconstructed server-side)
+        questions_map: questionsMap,
+        // optional snapshot of questions (helps render review exactly as the user saw it)
+        questions_snapshot: result.questions,
       } as any;
 
       console.log("Inserting mock payload:", payload);
@@ -441,6 +375,68 @@ export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
       throw err;
     }
   }
+
+  // When reviewTestId is present, prefer to load the review from server-side `test_logs`
+  useEffect(() => {
+    if (!reviewTestId) return;
+
+    let mounted = true;
+    (async () => {
+      try {
+        // Try to fetch the test_log by id
+        const { data, error } = await supabase
+          .from('test_logs')
+          .select('*')
+          .eq('id', reviewTestId)
+          .maybeSingle();
+        if (error) throw error;
+        if (!data) {
+          console.warn('No remote test_log found for review id', reviewTestId);
+          return;
+        }
+
+        // If questions_snapshot and questions_map exist, use them to reconstruct review
+        const qsnap = data.questions_snapshot as any[] | undefined;
+        const qmap = data.questions_map as Record<string, string[]> | undefined;
+
+        if (qsnap && qmap && mounted) {
+          // set questions to snapshot
+          setQuestions(qsnap as Question[]);
+
+          // Build userAnswers map keyed by question index (0..)
+          const idToIndex = new Map<number, number>();
+          (qsnap as any[]).forEach((q: any, idx: number) => {
+            idToIndex.set(Number(q.id), idx);
+          });
+
+          const ua = new Map<number, string[]>();
+          for (const [qidStr, answers] of Object.entries(qmap)) {
+            const qidNum = Number(qidStr);
+            const idx = idToIndex.get(qidNum);
+            if (typeof idx === 'number') {
+              ua.set(idx, answers as string[]);
+            }
+          }
+
+          setUserAnswers(ua);
+          // Recalculate results from restored questions and answers
+          // small delay to ensure state applied
+          setTimeout(() => {
+            calculateResults();
+            setIsComplete(true);
+            setShowResults(true);
+            setIsReviewMode(true);
+            setCurrentQuestionIndex(0);
+          }, 0);
+        }
+      } catch (err) {
+        console.error('Failed to load remote test_log for review:', err);
+        // fallback to existing localStorage-based review which is already handled by initializers
+      }
+    })();
+
+    return () => { mounted = false; };
+  }, [reviewTestId]);
 
   const currentQuestion = questions[currentQuestionIndex];
 
