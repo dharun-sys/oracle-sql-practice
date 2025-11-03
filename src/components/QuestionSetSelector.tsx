@@ -68,7 +68,7 @@ export function QuestionSetSelector({ onSelectSet, onStartMockTest, onReviewTest
         if (error) throw error;
         if (mounted && data) {
           // normalize to the shape the UI expects
-          const normalized = (data as any[])
+          const serverRows = (data as any[])
             // data already filtered to rows with questions_map != null, but be defensive
             .filter(r => r.questions_map !== null && r.questions_map !== undefined)
             .map((row: any) => ({
@@ -80,7 +80,36 @@ export function QuestionSetSelector({ onSelectSet, onStartMockTest, onReviewTest
               timeSpent: row.time_spent || row.timeSpent || '',
             }));
 
-          setMockTestHistory(normalized);
+          // also include any localStorage entries (guests or before server-save) so user sees both
+          const localRaw = localStorage.getItem("mockTestResults");
+          let localRows: any[] = [];
+          if (localRaw) {
+            try {
+              const parsed = JSON.parse(localRaw) as any[];
+              localRows = parsed.map(r => ({
+                id: r.id,
+                date: r.date,
+                score: r.score,
+                total: r.total || r.total_questions || 57,
+                percentage: r.percentage,
+                timeSpent: r.timeSpent || r.time_spent || r.timeSpent || '',
+              }));
+            } catch (e) {
+              console.warn('Failed to parse local mockTestResults', e);
+            }
+          }
+
+          // Merge server + local, removing duplicates (match by date+score+percentage)
+          const merged = [...serverRows];
+          for (const l of localRows) {
+            const exists = serverRows.some(s => s.date === l.date && s.score === l.score && s.percentage === l.percentage);
+            if (!exists) merged.push(l);
+          }
+
+          // sort by date desc
+          merged.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+          setMockTestHistory(merged);
         }
       } catch (err) {
         console.warn('Failed to fetch mock test history from server, falling back to localStorage', err);
