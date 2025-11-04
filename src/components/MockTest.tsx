@@ -274,6 +274,35 @@ export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
     return finalScore;
   };
 
+  // Pure helper: compute results from provided questions array and userAnswers map
+  const calculateResultsFrom = (qs: Question[], ua: Map<number, string[]>) => {
+    let finalScore = 0;
+    const correct = new Set<number>();
+    const incorrect = new Set<number>();
+
+    qs.forEach((question, index) => {
+      const userAnswer = ua.get(index);
+      if (userAnswer) {
+        const correctAnswerIds = question.answers
+          .filter((a) => a.isCorrect)
+          .map((a) => a.id)
+          .sort();
+
+        const userSorted = [...userAnswer].sort();
+        const isCorrect = userSorted.length === correctAnswerIds.length && userSorted.every((id, idx) => id === correctAnswerIds[idx]);
+
+        if (isCorrect) {
+          finalScore++;
+          correct.add(index);
+        } else {
+          incorrect.add(index);
+        }
+      }
+    });
+
+    return { finalScore, correct, incorrect } as { finalScore: number; correct: Set<number>; incorrect: Set<number> };
+  };
+
   const saveMockTestResult = (finalScore: number) => {
     const percentage = Math.round((finalScore / 57) * 100);
     const timeSpent = formatTime((90 * 60) - timeRemaining);
@@ -415,31 +444,56 @@ export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
           // set questions to snapshot
           setQuestions(qsnap as Question[]);
 
-          // Build userAnswers map keyed by question index (0..)
-          const idToIndex = new Map<number, number>();
+          // Build userAnswers map keyed by question index (0..). Use string ids to avoid Number() NaN issues.
+          const idToIndex = new Map<string, number>();
           (qsnap as any[]).forEach((q: any, idx: number) => {
-            idToIndex.set(Number(q.id), idx);
+            idToIndex.set(String(q.id), idx);
           });
 
           const ua = new Map<number, string[]>();
           for (const [qidStr, answers] of Object.entries(qmap)) {
-            const qidNum = Number(qidStr);
-            const idx = idToIndex.get(qidNum);
+            const idx = idToIndex.get(String(qidStr));
             if (typeof idx === 'number') {
               ua.set(idx, answers as string[]);
             }
           }
 
+          // set state
+          setQuestions(qsnap as Question[]);
           setUserAnswers(ua);
-          // Recalculate results from restored questions and answers
-          // small delay to ensure state applied
-          setTimeout(() => {
-            calculateResults();
-            setIsComplete(true);
-            setShowResults(true);
-            setIsReviewMode(true);
-            setCurrentQuestionIndex(0);
-          }, 0);
+
+          // compute results synchronously from provided data (avoid async state timing issues)
+          const { finalScore, correct, incorrect } = calculateResultsFrom(qsnap as Question[], ua);
+          setScore(finalScore);
+          setCorrectAnswers(correct);
+          setIncorrectAnswers(incorrect);
+          setAnsweredQuestions(new Set(Array.from(ua.keys())));
+          setIsComplete(true);
+          setShowResults(true);
+          setIsReviewMode(true);
+          setCurrentQuestionIndex(0);
+        } else {
+          // No remote test_log found — fallback to localStorage if present (allows reviewing local-only attempts)
+          try {
+            const localRaw = localStorage.getItem('mockTestResults');
+            if (localRaw && mounted) {
+              const parsed = JSON.parse(localRaw) as any[];
+              const testResult = parsed.find(r => r && r.id === reviewTestId);
+              if (testResult) {
+                setQuestions(testResult.questions || []);
+                setUserAnswers(new Map(testResult.userAnswers || []));
+                setTimeout(() => {
+                  calculateResults();
+                  setIsComplete(true);
+                  setShowResults(true);
+                  setIsReviewMode(true);
+                  setCurrentQuestionIndex(0);
+                }, 0);
+              }
+            }
+          } catch (e) {
+            console.warn('Failed to load local mockTestResults for review fallback', e);
+          }
         }
       } catch (err) {
         console.error('Failed to load remote test_log for review:', err);
@@ -601,21 +655,15 @@ export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
   };
 
   const getAnswerStyle = (answer: Answer) => {
-    if (!isReviewMode) {
-      return selectedAnswers.includes(answer.id)
-        ? "border-primary bg-primary/5"
-        : "border-border hover:border-primary/50 hover:bg-secondary";
-    }
-
-    if (answer.isCorrect) {
-      return "border-success/30 bg-success-bg";
-    }
-
-    if (selectedAnswers.includes(answer.id) && !answer.isCorrect) {
+    // In review mode show correct as green, everything else red for mismatches
+    if (isReviewMode) {
+      if (answer.isCorrect) return "border-success/30 bg-success-bg";
       return "border-destructive/30 bg-destructive-bg";
     }
 
-    return "border-border bg-secondary";
+    return selectedAnswers.includes(answer.id)
+      ? "border-primary bg-primary/5"
+      : "border-border hover:border-primary/50 hover:bg-secondary";
   };
 
   // Start Screen (only show if not in review mode)
