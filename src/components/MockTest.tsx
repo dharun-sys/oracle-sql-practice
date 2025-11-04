@@ -291,10 +291,22 @@ export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
       incorrectAnswers: Array.from(incorrectAnswers),
     };
 
-    const existingResults = localStorage.getItem("mockTestResults");
-    const results = existingResults ? JSON.parse(existingResults) : [];
-    results.push(result);
-    localStorage.setItem("mockTestResults", JSON.stringify(results));
+    // Only persist to localStorage if this result already exists there (e.g. user took test offline
+    // and we previously saved it locally). For new submissions we rely on the DB only.
+    try {
+      const existingResults = localStorage.getItem("mockTestResults");
+      if (existingResults) {
+        const parsed = JSON.parse(existingResults) as any[];
+        const idx = parsed.findIndex(r => r && r.id === result.id);
+        if (idx >= 0) {
+          // update existing local entry with the authoritative result
+          parsed[idx] = result;
+          localStorage.setItem("mockTestResults", JSON.stringify(parsed));
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to update local mockTestResults (non-fatal)', e);
+    }
 
     // also attempt to persist remotely to Supabase
     try {
@@ -521,10 +533,20 @@ export default function MockTest({ onBack, reviewTestId }: MockTestProps) {
       incorrectAnswers: Array.from(incorrect),
     };
 
-    const existingResults = localStorage.getItem("mockTestResults");
-    const results = existingResults ? JSON.parse(existingResults) : [];
-    results.push(result);
-    localStorage.setItem("mockTestResults", JSON.stringify(results));
+    // Only persist to localStorage if an entry with this id already exists locally.
+    try {
+      const existingResults = localStorage.getItem("mockTestResults");
+      if (existingResults) {
+        const parsed = JSON.parse(existingResults) as any[];
+        const idx = parsed.findIndex(r => r && r.id === result.id);
+        if (idx >= 0) {
+          parsed[idx] = result;
+          localStorage.setItem("mockTestResults", JSON.stringify(parsed));
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to update local mockTestResults on confirmSubmit (non-fatal)', e);
+    }
     // persist remote copy as well
     try {
       setRemoteSaveStatus("saving");
